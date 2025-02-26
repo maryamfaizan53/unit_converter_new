@@ -12,6 +12,7 @@ api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
     st.error("API key not found. Please check your .env file.")
+    st.stop()  # Stop the app if API key is missing
 else:
     genai.configure(api_key=api_key)
 
@@ -36,10 +37,10 @@ st.markdown("<h1 class='title'>🔄 AI-Powered Unit Converter</h1>", unsafe_allo
 # ✅ Sidebar for Inputs
 st.sidebar.header("Conversion Settings")
 
+# Define unit types and their respective units
 unit_type = st.sidebar.selectbox("Select Unit Type", ["Length", "Weight", "Temperature", "Speed", "Time", "Area", "Volume"])
 input_value = st.sidebar.number_input("Enter Value", min_value=0.0, format="%.2f")
 
-# ✅ Define Conversion Categories
 conversion_units = {
     "Length": ["Meters", "Kilometers", "Miles", "Feet", "Inches", "Yards", "Centimeters", "Millimeters"],
     "Weight": ["Kilograms", "Grams", "Pounds", "Ounces", "Tonnes"],
@@ -50,12 +51,14 @@ conversion_units = {
     "Volume": ["Liters", "Milliliters", "Gallons", "Cubic meters"]
 }
 
-# ✅ Update Unit Selection Based on Type
+# Update unit selection based on the selected unit type
 if unit_type:
     from_unit = st.sidebar.selectbox("From", conversion_units[unit_type])
     to_unit = st.sidebar.selectbox("To", conversion_units[unit_type])
+else:
+    st.warning("Please select a unit type first.")
 
-# ✅ Optimized Manual Conversion Function
+# ✅ Manual Conversion Function
 def manual_conversion(value, from_unit, to_unit):
     conversion_factors = {
         "Meters_Kilometers": 0.001,
@@ -114,17 +117,34 @@ def manual_conversion(value, from_unit, to_unit):
         return factor(value) if callable(factor) else value * factor
     return None
 
+# ✅ Gemini AI Integration for Advanced Conversions
+def gemini_conversion(value, from_unit, to_unit):
+    model = genai.GenerativeModel('gemini-pro')
+    prompt = f"Convert {value} {from_unit} to {to_unit}. Provide only the numerical result."
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        st.error(f"Gemini AI Error: {e}")
+        return None
+
 # ✅ Convert Button
 if st.button("🔄 Convert", help="Click to convert the units"):
     if from_unit != to_unit:
         manual_result = manual_conversion(input_value, from_unit, to_unit)
         if manual_result is not None:
-            st.success(f"Converted Value: {manual_result:.2f} {to_unit}")
+            st.success(f"Manual Conversion: {manual_result:.2f} {to_unit}")
         else:
-            st.error("Conversion not available.")
+            st.warning("Manual conversion not available. Using Gemini AI...")
+            gemini_result = gemini_conversion(input_value, from_unit, to_unit)
+            if gemini_result:
+                st.success(f"Gemini AI Conversion: {gemini_result} {to_unit}")
+            else:
+                st.error("Conversion failed. Please try again.")
     else:
         st.warning("Please select different units.")
 
 # ✅ Footer
-st.markdown("---")
-st.caption("✨ Made by Maryam Faizan ❤️ using Streamlit & Google Gemini AI")
+author = "Maryam Faizan"
+version = "1.0"
+st.markdown(f"---\n✨ Made by {author} ❤️ using Streamlit & Google Gemini AI (v{version})")
